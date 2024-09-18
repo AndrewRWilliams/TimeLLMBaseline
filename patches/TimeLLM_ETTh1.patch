@@ -1,0 +1,19 @@
+diff --git a/scripts/TimeLLM_ETTh1.sh b/scripts/TimeLLM_ETTh1.sh
+index 952e5de..00b9d94 100644
+--- a/scripts/TimeLLM_ETTh1.sh
++++ b/scripts/TimeLLM_ETTh1.sh
+@@ -1,11 +1,11 @@
+ model_name=TimeLLM
+-train_epochs=100
+-learning_rate=0.01
++train_epochs=50
++learning_rate=0.001
+ llama_layers=32
+ 
+ master_port=00097
+ num_process=8
+-batch_size=24
++batch_size=16
+ d_model=32
+ d_ff=128
+ 

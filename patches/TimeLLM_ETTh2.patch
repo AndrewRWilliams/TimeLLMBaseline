@@ -1,0 +1,25 @@
+diff --git a/scripts/TimeLLM_ETTh2.sh b/scripts/TimeLLM_ETTh2.sh
+index f7ad30c..51ca388 100644
+--- a/scripts/TimeLLM_ETTh2.sh
++++ b/scripts/TimeLLM_ETTh2.sh
+@@ -1,17 +1,16 @@
+ model_name=TimeLLM
+-train_epochs=10
+-learning_rate=0.01
++train_epochs=50
++learning_rate=0.001
+ llama_layers=32
+ 
+ master_port=00098
+ num_process=8
+-batch_size=24
++batch_size=16
+ d_model=32
+ d_ff=128
+ 
+ comment='TimeLLM-ETTh2'
+ 
+-
+ accelerate launch --multi_gpu --mixed_precision bf16 --num_processes $num_process --main_process_port $master_port run_main.py \
+   --task_name long_term_forecast \
+   --is_training 1 \

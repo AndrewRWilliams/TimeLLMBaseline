@@ -1,0 +1,110 @@
+diff --git a/run_main.py b/run_main.py
+index 1497e19..0834512 100644
+--- a/run_main.py
++++ b/run_main.py
+@@ -35,6 +35,7 @@ parser.add_argument('--model_comment', type=str, required=True, default='none',
+ parser.add_argument('--model', type=str, required=True, default='Autoformer',
+                     help='model name, options: [Autoformer, DLinear]')
+ parser.add_argument('--seed', type=int, default=2021, help='random seed')
++parser.add_argument('--resume', action="store_true", default=False)
+ 
+ # data loader
+ parser.add_argument('--data', type=str, required=True, default='ETTm1', help='dataset type')
+@@ -164,13 +165,21 @@ for ii in range(args.itr):
+     criterion = nn.MSELoss()
+     mae_metric = nn.L1Loss()
+ 
+-    train_loader, vali_loader, test_loader, model, model_optim, scheduler = accelerator.prepare(
+-        train_loader, vali_loader, test_loader, model, model_optim, scheduler)
++    train_loader, vali_loader, test_loader, model, model_optim, scheduler, early_stopping = accelerator.prepare(
++        train_loader, vali_loader, test_loader, model, model_optim, scheduler, early_stopping)
++
++    accelerator.register_for_checkpointing(scheduler)
++    accelerator.register_for_checkpointing(early_stopping)
++
++    if args.resume:
++        accelerator.load_state(path + "/latest_checkpoint")
++    else:
++        accelerator.save_state(path + "/latest_checkpoint")
+ 
+     if args.use_amp:
+         scaler = torch.cuda.amp.GradScaler()
+ 
+-    for epoch in range(args.train_epochs):
++    for epoch in range(early_stopping.last_epoch, args.train_epochs):
+         iter_count = 0
+         train_loss = []
+ 
+@@ -192,8 +201,20 @@ for ii in range(args.itr):
+                 accelerator.device)
+ 
+             # encoder - decoder
+-            if args.use_amp:
+-                with torch.cuda.amp.autocast():
++            with torch.autocast(device_type="cuda"):
++                if args.use_amp:
++                    with torch.cuda.amp.autocast():
++                        if args.output_attention:
++                            outputs = model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
++                        else:
++                            outputs = model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
++
++                        f_dim = -1 if args.features == 'MS' else 0
++                        outputs = outputs[:, -args.pred_len:, f_dim:]
++                        batch_y = batch_y[:, -args.pred_len:, f_dim:].to(accelerator.device)
++                        loss = criterion(outputs, batch_y)
++                        train_loss.append(loss.item())
++                else:
+                     if args.output_attention:
+                         outputs = model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                     else:
+@@ -201,20 +222,9 @@ for ii in range(args.itr):
+ 
+                     f_dim = -1 if args.features == 'MS' else 0
+                     outputs = outputs[:, -args.pred_len:, f_dim:]
+-                    batch_y = batch_y[:, -args.pred_len:, f_dim:].to(accelerator.device)
++                    batch_y = batch_y[:, -args.pred_len:, f_dim:]
+                     loss = criterion(outputs, batch_y)
+                     train_loss.append(loss.item())
+-            else:
+-                if args.output_attention:
+-                    outputs = model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+-                else:
+-                    outputs = model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+-
+-                f_dim = -1 if args.features == 'MS' else 0
+-                outputs = outputs[:, -args.pred_len:, f_dim:]
+-                batch_y = batch_y[:, -args.pred_len:, f_dim:]
+-                loss = criterion(outputs, batch_y)
+-                train_loss.append(loss.item())
+ 
+             if (i + 1) % 100 == 0:
+                 accelerator.print(
+@@ -239,8 +249,11 @@ for ii in range(args.itr):
+ 
+         accelerator.print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+         train_loss = np.average(train_loss)
+-        vali_loss, vali_mae_loss = vali(args, accelerator, model, vali_data, vali_loader, criterion, mae_metric)
+-        test_loss, test_mae_loss = vali(args, accelerator, model, test_data, test_loader, criterion, mae_metric)
++        with torch.autocast(device_type="cuda"):
++            vali_loss, vali_mae_loss = vali(args, accelerator, model, vali_data, vali_loader, criterion, mae_metric)
++            # test_loss, test_mae_loss = vali(args, accelerator, model, test_data, test_loader, criterion, mae_metric)
++            test_loss, test_mae_loss = None, None
++
+         accelerator.print(
+             "Epoch: {0} | Train Loss: {1:.7f} Vali Loss: {2:.7f} Test Loss: {3:.7f} MAE Loss: {4:.7f}".format(
+                 epoch + 1, train_loss, vali_loss, test_loss, test_mae_loss))
+@@ -264,7 +277,7 @@ for ii in range(args.itr):
+             accelerator.print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
+ 
+ accelerator.wait_for_everyone()
+-if accelerator.is_local_main_process:
+-    path = './checkpoints'  # unique checkpoint saving path
+-    del_files(path)  # delete checkpoint files
+-    accelerator.print('success delete checkpoints')
+\ No newline at end of file
++# if accelerator.is_local_main_process:
++#     path = './checkpoints'  # unique checkpoint saving path
++#     del_files(path)  # delete checkpoint files
++#     accelerator.print('success delete checkpoints')
+\ No newline at end of file

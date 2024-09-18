@@ -1,0 +1,22 @@
+diff --git a/ds_config_zero2.json b/ds_config_zero2.json
+index aa37aae..0549d31 100644
+--- a/ds_config_zero2.json
++++ b/ds_config_zero2.json
+@@ -1,8 +1,4 @@
+ {
+-  "bf16": {
+-    "enabled": true,
+-    "auto_cast": true
+-  },
+   "zero_optimization": {
+     "stage": 2,
+     "allgather_partitions": true,
+@@ -16,6 +12,6 @@
+   "gradient_accumulation_steps": "auto",
+   "train_batch_size": "auto",
+   "train_micro_batch_size_per_gpu": "auto",
+-  "steps_per_print": 10,
++  "steps_per_print": 1,
+   "wall_clock_breakdown": false
+ }
+\ No newline at end of file

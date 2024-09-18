@@ -1,0 +1,78 @@
+diff --git a/utils/tools.py b/utils/tools.py
+index b9ee19b..f8a92f6 100644
+--- a/utils/tools.py
++++ b/utils/tools.py
+@@ -36,7 +36,7 @@ def adjust_learning_rate(accelerator, optimizer, scheduler, epoch, args, printou
+ 
+ 
+ class EarlyStopping:
+-    def __init__(self, accelerator=None, patience=7, verbose=False, delta=0, save_mode=True):
++    def __init__(self, accelerator=None, patience=7, verbose=True, delta=0, save_mode=True):
+         self.accelerator = accelerator
+         self.patience = patience
+         self.verbose = verbose
+@@ -46,9 +46,12 @@ class EarlyStopping:
+         self.val_loss_min = np.Inf
+         self.delta = delta
+         self.save_mode = save_mode
++        self.last_epoch = 0
+ 
+     def __call__(self, val_loss, model, path):
+         score = -val_loss
++        self.last_epoch += 1  # TODO: Save last checkpoint and best checkpoint
++
+         if self.best_score is None:
+             self.best_score = score
+             if self.save_mode:
+@@ -67,6 +70,8 @@ class EarlyStopping:
+                 self.save_checkpoint(val_loss, model, path)
+             self.counter = 0
+ 
++        self.accelerator.save_state(path + "/latest_checkpoint")
++
+     def save_checkpoint(self, val_loss, model, path):
+         if self.verbose:
+             if self.accelerator is not None:
+@@ -77,12 +82,39 @@ class EarlyStopping:
+                     f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+ 
+         if self.accelerator is not None:
+-            model = self.accelerator.unwrap_model(model)
+-            torch.save(model.state_dict(), path + '/' + 'checkpoint')
++            self.accelerator.save_state(path + '/best_checkpoint')
+         else:
+-            torch.save(model.state_dict(), path + '/' + 'checkpoint')
++            torch.save(model.state_dict(), path + '/best_checkpoint')
+         self.val_loss_min = val_loss
+ 
++    def state_dict(self, *args, destination=None, prefix='', keep_vars=False):
++        if destination is None:
++            destination = dict()
++
++        destination["patience"] = self.patience
++        destination["counter"] = self.counter
++        destination["best_score"] = self.best_score
++        destination["val_loss_min"] = self.val_loss_min
++        destination["delta"] = self.delta
++        destination["save_mode"] = self.save_mode
++        destination["verbose"] = self.verbose
++        destination["save_mode"] = self.save_mode
++        destination["last_epoch"] = self.last_epoch
++
++        return destination
++
++    def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
++        assert strict
++
++        self.patience = state_dict["patience"]
++        self.counter = state_dict["counter"]
++        self.best_score = state_dict["best_score"]
++        self.val_loss_min = state_dict["val_loss_min"]
++        self.delta = state_dict["delta"]
++        self.save_mode = state_dict["save_mode"]
++        self.verbose = state_dict["verbose"]
++        self.save_mode = state_dict["save_mode"]
++        self.last_epoch = state_dict.get("last_epoch", 0) # TODO: Change to state_dict["save_mode"], doing this for now to avoid error
+ 
+ class dotdict(dict):
+     """dot.notation access to dictionary attributes"""
