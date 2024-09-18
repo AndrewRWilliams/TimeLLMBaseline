@@ -14,9 +14,9 @@ from transformers import (
     BertModel,
     BertTokenizer,
 )
-from .layers.Embed import PatchEmbedding
+from ..layers.Embed import PatchEmbedding
 import transformers
-from .layers.StandardNorm import Normalize
+from ..layers.StandardNorm import Normalize
 
 transformers.logging.set_verbosity_error()
 
