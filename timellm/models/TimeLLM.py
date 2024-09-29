@@ -279,6 +279,9 @@ class Model(nn.Module):
         ).permute(1, 0)
 
         x_enc = x_enc.permute(0, 2, 1).contiguous()
+        if x_enc.size(-1) < self.patch_len - self.stride:
+            padding = nn.ReplicationPad1d((0, (self.patch_len - self.stride) - x_enc.size(-1)))
+            x_enc = padding(x_enc)
         enc_out, n_vars = self.patch_embedding(x_enc)
         enc_out = self.reprogramming_layer(
             enc_out, source_embeddings, source_embeddings
@@ -305,6 +308,8 @@ class Model(nn.Module):
         res = q_fft * torch.conj(k_fft)
         corr = torch.fft.irfft(res, dim=-1)
         mean_value = torch.mean(corr, dim=1)
+        if self.top_k > mean_value.shape[-1]:
+            self.top_k = mean_value.shape[-1]
         _, lags = torch.topk(mean_value, self.top_k, dim=-1)
         return lags
 
